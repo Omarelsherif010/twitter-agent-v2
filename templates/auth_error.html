@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Authentication Error - Twitter Agent V2</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='/css/styles.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Twitter Agent V2</h1>
+        </header>
+        
+        <main>
+            <section class="auth-error">
+                <h2>Authentication Error</h2>
+                <p>There was an error connecting your Twitter account:</p>
+                <div class="error-message">{{ error }}</div>
+                <p>Please try again or contact support if the issue persists.</p>
+                <a href="/" class="btn btn-primary">Return to Home</a>
+            </section>
+        </main>
+        
+        <footer>
+            <p>&copy; 2025 Twitter Agent V2</p>
+        </footer>
+    </div>
+</body>
+</html>

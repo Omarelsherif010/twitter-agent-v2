@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Authentication Successful - Twitter Agent V2</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='/css/styles.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Twitter Agent V2</h1>
+        </header>
+        
+        <main>
+            <section class="auth-success">
+                <h2>Authentication Successful!</h2>
+                <p>Your Twitter account <strong>@{{ username }}</strong> has been successfully connected.</p>
+                <p>The AI agent can now perform actions on your behalf.</p>
+                <a href="/" class="btn btn-primary">Return to Home</a>
+            </section>
+        </main>
+        
+        <footer>
+            <p>&copy; 2025 Twitter Agent V2</p>
+        </footer>
+    </div>
+</body>
+</html>

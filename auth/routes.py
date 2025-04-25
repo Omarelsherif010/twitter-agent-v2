@@ -1,17 +1,9 @@
-from fastapi import APIRouter, Request, Depends, HTTPException, status
+from fastapi import APIRouter, Request, HTTPException, status
 from fastapi.responses import RedirectResponse, JSONResponse
-from fastapi.templating import Jinja2Templates
-import os
 from typing import Optional, List, Dict, Any
 
 from auth.oauth import OAuth2Handler
 from database.db import get_users, get_user, get_tokens, update_token_by_user_id
-
-# Create templates directory if it doesn't exist
-os.makedirs("templates", exist_ok=True)
-
-# Setup templates
-templates = Jinja2Templates(directory="templates")
 
 # Create router
 auth_router = APIRouter()
@@ -49,20 +41,22 @@ async def callback(request: Request, code: str, state: Optional[str] = None):
         # Save token to database
         user, token = await oauth_handler.save_token(token_data)
         
-        # Return success page
-        return templates.TemplateResponse(
-            "auth_success.html", 
-            {
-                "request": request, 
-                "username": token["twitter_username"]
+        # Return success JSON
+        return {
+            "status": "success",
+            "message": "Authentication successful",
+            "user": {
+                "id": user.get("id"),
+                "twitter_username": token.get("twitter_username"),
+                "twitter_user_id": token.get("twitter_user_id")
             }
-        )
+        }
     except Exception as e:
-        return templates.TemplateResponse(
-            "auth_error.html", 
-            {
-                "request": request, 
-                "error": str(e)
+        return JSONResponse(
+            status_code=400,
+            content={
+                "status": "error",
+                "message": f"Authentication failed: {str(e)}"
             }
         )
 

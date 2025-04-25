@@ -134,10 +134,22 @@ async def agent_action(
 ):
     """
     Endpoint for AI agent to interact with Twitter
-    This is a placeholder for future implementation
     """
-    # This will be implemented in future iterations
-    return {
-        "status": "not_implemented",
-        "message": "Agent functionality will be implemented in future iterations"
-    }
+    from agent.agent import TwitterAgent
+    
+    if not user_id and not twitter_user_id:
+        raise HTTPException(status_code=400, detail="Either user_id or twitter_user_id must be provided")
+    
+    try:
+        # Initialize the Twitter agent
+        agent = TwitterAgent()
+        
+        # Process the query
+        response = await agent.process_query(query=query, user_id=user_id, twitter_user_id=twitter_user_id)
+        
+        return response
+    except Exception as e:
+        import traceback
+        error_details = traceback.format_exc()
+        print(f"Agent error: {error_details}")
+        raise HTTPException(status_code=500, detail=f"Agent processing error: {str(e)}")

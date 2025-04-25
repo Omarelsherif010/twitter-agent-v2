@@ -1,14 +1,12 @@
 import uvicorn
-from fastapi import FastAPI, Depends, Request
-from fastapi.responses import HTMLResponse
-from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
+from fastapi import FastAPI
 import os
 
 from config import HOST, PORT, DEBUG
 from database.db import init_db
 from auth.routes import auth_router
 from twitter.routes import twitter_router
+from agent.routes import agent_router
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -17,25 +15,28 @@ app = FastAPI(
     version="0.1.0"
 )
 
-# Create templates directory if it doesn't exist
-os.makedirs("templates", exist_ok=True)
-
-# Mount static files
-app.mount("/static", StaticFiles(directory="static"), name="static")
-
-# Setup Jinja2 templates
-templates = Jinja2Templates(directory="templates")
-
 # Include routers
 app.include_router(auth_router, prefix="/auth", tags=["Authentication"])
 app.include_router(twitter_router, prefix="/twitter", tags=["Twitter"])
+app.include_router(agent_router, prefix="/agent", tags=["Agent"])
 
-@app.get("/", response_class=HTMLResponse)
-async def root(request: Request):
+@app.get("/")
+async def root():
     """
-    Root endpoint that displays the home page
+    Root endpoint that returns API information
     """
-    return templates.TemplateResponse("index.html", {"request": request})
+    return {
+        "name": "Twitter Agent V2 API",
+        "version": "0.1.0",
+        "description": "Twitter agent API with OAuth 2.0 authentication",
+        "endpoints": [
+            "/auth/login",
+            "/twitter/tweet",
+            "/twitter/timeline",
+            "/twitter/search",
+            "/twitter/agent"
+        ]
+    }
 
 @app.on_event("startup")
 async def startup():
@@ -45,9 +46,8 @@ async def startup():
     await init_db()
 
 if __name__ == "__main__":
-    # Create necessary directories
-    os.makedirs("static", exist_ok=True)
-    os.makedirs("templates", exist_ok=True)
+    # Ensure data directory exists for JSON storage
+    os.makedirs("data", exist_ok=True)
     
     # Run the application
     uvicorn.run("app:app", host=HOST, port=PORT, reload=DEBUG)

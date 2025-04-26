@@ -1,6 +1,6 @@
 import tweepy
 from fastapi import HTTPException
-import datetime as dt  # Import as dt to avoid confusion
+from datetime import datetime, timedelta
 import os
 import json
 import base64
@@ -84,7 +84,7 @@ class OAuth2Handler:
             twitter_username = user_info.data.username
             
             # Calculate token expiration
-            expires_at = dt.datetime.utcnow() + dt.timedelta(seconds=token_data['expires_in'])
+            expires_at = datetime.utcnow() + timedelta(seconds=token_data['expires_in'])
             
             return {
                 "access_token": token_data['access_token'],
@@ -106,7 +106,7 @@ class OAuth2Handler:
             token_data = self.oauth2_handler.refresh_token(refresh_token)
             
             # Calculate new expiration
-            expires_at = dt.datetime.utcnow() + dt.timedelta(seconds=token_data['expires_in'])
+            expires_at = datetime.utcnow() + timedelta(seconds=token_data['expires_in'])
             
             return {
                 "access_token": token_data['access_token'],
@@ -131,7 +131,7 @@ class OAuth2Handler:
                 "refresh_token": token_data.get("refresh_token", existing_token.get("refresh_token")),
                 "expires_at": token_data["expires_at"],
                 "scopes": token_data.get("scopes", existing_token.get("scopes", "")),
-                "updated_at": dt.datetime.utcnow(),
+                "updated_at": datetime.utcnow(),
                 "is_active": True
             }
             
@@ -150,8 +150,8 @@ class OAuth2Handler:
                 # Create user model
                 user_data = {
                     "username": token_data["twitter_username"],
-                    "created_at": dt.datetime.utcnow(),
-                    "updated_at": dt.datetime.utcnow()
+                    "created_at": datetime.utcnow(),
+                    "updated_at": datetime.utcnow()
                 }
                 
                 # Create user in storage
@@ -170,8 +170,8 @@ class OAuth2Handler:
                 "refresh_token": token_data.get("refresh_token"),
                 "expires_at": token_data["expires_at"],
                 "scopes": token_data.get("scopes", ""),
-                "created_at": dt.datetime.utcnow(),
-                "updated_at": dt.datetime.utcnow(),
+                "created_at": datetime.utcnow(),
+                "updated_at": datetime.utcnow(),
                 "is_active": True
             }
             

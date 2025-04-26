@@ -3,7 +3,7 @@ import os
 import logging
 import aiofiles
 import asyncio
-import datetime as dt  # Import as dt to be consistent with OAuth handler
+from datetime import datetime
 from typing import Dict, Any, List, Optional
 
 # Set up logging
@@ -56,7 +56,7 @@ async def read_json_file(file_path: str) -> Dict:
 # Custom JSON encoder to handle datetime objects
 class DateTimeEncoder(json.JSONEncoder):
     def default(self, obj):
-        if isinstance(obj, dt.datetime):
+        if isinstance(obj, datetime):
             return obj.isoformat()
         return super().default(obj)
 
@@ -192,7 +192,7 @@ async def save_tweets(user_id: str, tweets: List[Dict], tweet_type: str = "timel
         os.makedirs(user_tweets_dir, exist_ok=True)
         
         # Generate filename with timestamp
-        timestamp = dt.datetime.now().strftime("%Y%m%d_%H%M%S")
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = f"{tweet_type}_{timestamp}.json"
         file_path = os.path.join(user_tweets_dir, filename)
         

@@ -1,6 +1,7 @@
-from typing import List, Optional, Dict, Any, Callable, Awaitable
+import json
 import logging
-from smolagents import Tool, tool
+from typing import Dict, List, Any, Optional, Callable, Awaitable
+from smolagents import tool
 from twitter.api import TwitterAPI
 
 # Set up logging
@@ -262,21 +263,18 @@ class TwitterTools:
         """
         self.twitter_api = twitter_api
         logger.info(f"Initialized TwitterTools for user_id={twitter_api.user_id}, twitter_user_id={twitter_api.twitter_user_id}")
-        
-    def get_tools(self) -> List[Callable[..., Awaitable[Dict[str, Any]]]]:
+    
+    def create_tools(self) -> List[Callable[..., Awaitable[Dict[str, Any]]]]:
         """
-        Get all Twitter tools bound to the current Twitter API instance.
+        Create and return the list of tools that the agent can use.
         
         Returns:
             List of tool functions that can be used by the agent.
         """
-        # Create bound functions that pass the twitter_api instance
-        tool_functions = []
-        
-        # Post tweet tool
         @tool
         async def post_tweet_tool(text: str, reply_to_id: Optional[str] = None) -> Dict[str, Any]:
-            """Post a new tweet to Twitter. Use this when the user wants to post content to their Twitter account.
+            """
+            Post a new tweet to Twitter. Use this when the user wants to post content to their Twitter account.
             
             Args:
                 text: The text content of the tweet.
@@ -287,10 +285,10 @@ class TwitterTools:
             """
             return await post_tweet(self.twitter_api, text, reply_to_id)
         
-        # Get timeline tool
         @tool
         async def get_timeline_tool(limit: int = 10) -> Dict[str, Any]:
-            """Get the user's Twitter timeline. Use this when the user wants to see their recent tweets or activity.
+            """
+            Get the user's Twitter timeline. Use this when the user wants to see their recent tweets or activity.
             
             Args:
                 limit: Maximum number of tweets to retrieve.
@@ -300,10 +298,10 @@ class TwitterTools:
             """
             return await get_user_timeline(self.twitter_api, limit)
         
-        # Search tweets tool
         @tool
         async def search_tweets_tool(query: str, limit: int = 10) -> Dict[str, Any]:
-            """Search for tweets using a keyword or hashtag. Use this when the user wants to find tweets about a specific topic.
+            """
+            Search for tweets using a keyword or hashtag. Use this when the user wants to find tweets about a specific topic.
             
             Args:
                 query: The search query or keyword.
@@ -314,20 +312,20 @@ class TwitterTools:
             """
             return await search_tweets(self.twitter_api, query, limit)
         
-        # Get user info tool
         @tool
         async def get_user_info_tool() -> Dict[str, Any]:
-            """Get information about the authenticated user. Use this when the user wants to know about their Twitter profile.
+            """
+            Get information about the authenticated user. Use this when the user wants to know about their Twitter profile.
             
             Returns:
                 A dictionary with the user's profile information.
             """
             return await get_user_info(self.twitter_api)
         
-        # Like tweet tool
         @tool
         async def like_tweet_tool(tweet_id: str) -> Dict[str, Any]:
-            """Like a tweet on Twitter. Use this when the user wants to like a specific tweet.
+            """
+            Like a tweet on Twitter. Use this when the user wants to like a specific tweet.
             
             Args:
                 tweet_id: The ID of the tweet to like.
@@ -337,10 +335,10 @@ class TwitterTools:
             """
             return await like_tweet(self.twitter_api, tweet_id)
         
-        # Unlike tweet tool
         @tool
         async def unlike_tweet_tool(tweet_id: str) -> Dict[str, Any]:
-            """Unlike a tweet on Twitter. Use this when the user wants to unlike a specific tweet.
+            """
+            Unlike a tweet on Twitter. Use this when the user wants to unlike a specific tweet.
             
             Args:
                 tweet_id: The ID of the tweet to unlike.
@@ -350,10 +348,10 @@ class TwitterTools:
             """
             return await unlike_tweet(self.twitter_api, tweet_id)
         
-        # Follow user tool
         @tool
         async def follow_user_tool(target_user_id: str) -> Dict[str, Any]:
-            """Follow a user on Twitter. Use this when the user wants to follow another Twitter user.
+            """
+            Follow a user on Twitter. Use this when the user wants to follow another Twitter user.
             
             Args:
                 target_user_id: The ID of the user to follow.
@@ -363,10 +361,10 @@ class TwitterTools:
             """
             return await follow_user(self.twitter_api, target_user_id)
         
-        # Unfollow user tool
         @tool
         async def unfollow_user_tool(target_user_id: str) -> Dict[str, Any]:
-            """Unfollow a user on Twitter. Use this when the user wants to unfollow another Twitter user.
+            """
+            Unfollow a user on Twitter. Use this when the user wants to unfollow another Twitter user.
             
             Args:
                 target_user_id: The ID of the user to unfollow.
@@ -376,7 +374,7 @@ class TwitterTools:
             """
             return await unfollow_user(self.twitter_api, target_user_id)
         
-        # Return all tool functions
+        # Return the list of tools
         return [
             post_tweet_tool,
             get_timeline_tool,
@@ -387,3 +385,13 @@ class TwitterTools:
             follow_user_tool,
             unfollow_user_tool
         ]
+        
+    def get_tools(self) -> List[Callable[..., Awaitable[Dict[str, Any]]]]:
+        """
+        Get all Twitter tools bound to the current Twitter API instance.
+        This is a compatibility method that calls create_tools().
+        
+        Returns:
+            List of tool functions that can be used by the agent.
+        """
+        return self.create_tools()

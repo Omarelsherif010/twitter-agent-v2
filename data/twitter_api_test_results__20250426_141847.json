@@ -1,0 +1,78 @@
+{
+  "timestamp": "_20250426_141845.",
+  "user_id": "2",
+  "endpoints": {
+    "get_user_info": {
+      "success": true,
+      "data": {
+        "id": 1171863380891770882,
+        "username": "omarelsherif010",
+        "name": "Omar Elsherif🥑",
+        "profile_image_url": null,
+        "verified": null,
+        "created_at": null
+      }
+    },
+    "get_user_timeline": {
+      "success": true,
+      "count": 5,
+      "sample": [
+        {
+          "id": 1916088784229147088,
+          "text": "RT @minchoi: It’s only been just 9 days since OpenAI dropped o3.\n\nPeople are already bending it like AGI magic.\n\n10 wild examples + pro tip…",
+          "created_at": "2025-04-26T11:15:40+00:00",
+          "author_id": 23113993,
+          "conversation_id": 1916088784229147088,
+          "in_reply_to_user_id": null
+        },
+        {
+          "id": 1916088731552936344,
+          "text": "https://t.co/DLuZJjDSQW",
+          "created_at": "2025-04-26T11:15:27+00:00",
+          "author_id": 1303344843314343937,
+          "conversation_id": 1916088731552936344,
+          "in_reply_to_user_id": null
+        },
+        {
+          "id": 1916087944898638318,
+          "text": "Editing a 8-hours footage is still better than Vibe coding.\n\nBut I needed a break after 15 hours of me editing in the past 24 hours (including sleep) https://t.co/wQfezjUt9I",
+          "created_at": "2025-04-26T11:12:19+00:00",
+          "author_id": 1704118916,
+          "conversation_id": 1916087944898638318,
+          "in_reply_to_user_id": null
+        }
+      ]
+    },
+    "search_tweets": {
+      "success": true,
+      "query": "python",
+      "count": 10,
+      "sample": [
+        {
+          "id": 1916089530014191754,
+          "text": "RT @JonathonPSine: Fukuyama has a 20,000 record database of every book and article he's ever read (and created his own database with python…",
+          "created_at": null,
+          "author_id": null,
+          "conversation_id": null,
+          "in_reply_to_user_id": null
+        },
+        {
+          "id": 1916089527669506150,
+          "text": "@Python_Dv this guide sounds awsm for learnin data science :) can't wait to start buildin projects",
+          "created_at": null,
+          "author_id": null,
+          "conversation_id": null,
+          "in_reply_to_user_id": null
+        },
+        {
+          "id": 1916089523219665038,
+          "text": "RT @BlockchainWorks: 👉 Realio is looking for a Remote Senior Backend/Blockchain Engineer working with Go, Python &amp; JavaScript\n\nApply now or…",
+          "created_at": null,
+          "author_id": null,
+          "conversation_id": null,
+          "in_reply_to_user_id": null
+        }
+      ]
+    }
+  }
+}

@@ -1,44 +1,36 @@
-import os
+"""Twitter AI Agent implementation using smolagents.
+
+This module provides an AI agent that can understand natural language queries
+and perform appropriate Twitter operations based on user intent.
+"""
+
 import json
 import logging
 import asyncio
 from typing import Dict, List, Optional, Any, Callable
-from smolagents import ToolCallingAgent
-from pydantic import BaseModel, Field
-from openai import OpenAI
+from smolagents import CodeAgent
+
 from twitter.api import TwitterAPI
 from agent.tools import TwitterTools
+from agent.base_agent import BaseAgent
+from agent.prompts import AgentPrompts
+from agent.models import ActionTaken, AgentResponse
 from database.db import save_tweets
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-class ActionTaken(BaseModel):
-    """Model for a single action taken by the agent."""
-    tool: str = Field(..., description="The name of the tool that was used")
-    input: Dict[str, Any] = Field(default={}, description="The input parameters provided to the tool")
-    output: Dict[str, Any] = Field(default={}, description="The output returned by the tool")
-    success: bool = Field(default=True, description="Whether the tool execution was successful")
-
-class AgentResponse(BaseModel):
-    """Model for agent response."""
-    response: str = Field(..., description="The text response from the agent")
-    actions_taken: List[ActionTaken] = Field(default=[], description="List of actions taken by the agent")
-
-class TwitterAgent:
-    """Twitter AI agent that can interact with Twitter API."""
+class TwitterAgent(BaseAgent):
+    """Twitter AI agent that can interact with Twitter API using smolagents."""
     
-    # Class-level cache for active user sessions
+    # Dictionary to store user sessions
     _user_sessions = {}
     _session_lock = asyncio.Lock()
     
-    def __init__(self, model_name: str = "gpt-4o"):
-        self.openai_api_key = os.getenv("OPENAI_API_KEY")
-        if not self.openai_api_key:
-            raise ValueError("OPENAI_API_KEY environment variable is required")
-        self.model_name = model_name
-        self.openai_client = OpenAI(api_key=self.openai_api_key)
+    def __init__(self, model_name: str = "gpt-4o", debug_mode: bool = False):
+        # Initialize the base agent
+        super().__init__(model=model_name, debug_mode=debug_mode)
         logger.info(f"Initialized TwitterAgent with model: {model_name}")
     
     async def _get_user_session(self, user_id: Optional[Any] = None, twitter_user_id: Optional[str] = None) -> Dict:
@@ -110,184 +102,93 @@ class TwitterAgent:
                 logger.info(f"Cleaning up old session: {key}")
                 del self._user_sessions[key]
     
-    async def _call_openai_with_tools(self, query: str, tools: List):
+
+    
+    async def _run_agent_with_tools(self, query: str, tools: List, session: Optional[Dict] = None):
         """
-        Call OpenAI API with tools and handle the response.
+        Run the agent with the provided tools and handle the response.
         """
-        # Create function definitions for the tools
-        tool_definitions = []
-        tool_map = {}
-        
-        for tool in tools:
-            # Handle SimpleTool objects from smolagents
-            if hasattr(tool, 'name') and hasattr(tool, 'description'):
-                # This is a SimpleTool from smolagents
-                func_name = tool.name
-                func_desc = tool.description
-                
-                # Get parameters from the tool's schema if available
-                parameters = {}
-                required_params = []
-                
-                if hasattr(tool, 'parameters_schema') and tool.parameters_schema:
-                    schema = tool.parameters_schema
-                    if 'properties' in schema:
-                        parameters = schema['properties']
-                    if 'required' in schema:
-                        required_params = schema['required']
-            else:
-                # Fallback for regular functions
-                func_name = getattr(tool, '__name__', f"tool_{len(tool_map)}")
-                func_desc = getattr(tool, '__doc__', f"Function to perform a Twitter operation")
-                
-                # Create parameters from function signature
-                import inspect
-                try:
-                    sig = inspect.signature(tool)
-                    parameters = {}
-                    required_params = []
-                    
-                    for param_name, param in sig.parameters.items():
-                        if param_name == 'self':
-                            continue
-                            
-                        param_type = "string"  # Default type
-                        param_desc = f"The {param_name} parameter"
-                        
-                        parameters[param_name] = {
-                            "type": param_type,
-                            "description": param_desc
-                        }
-                        
-                        if param.default == inspect.Parameter.empty:
-                            required_params.append(param_name)
-                except (ValueError, TypeError):
-                    # If we can't get the signature, use empty parameters
-                    parameters = {}
-                    required_params = []
-            
-            # Create the function definition
-            tool_def = {
-                "type": "function",
-                "function": {
-                    "name": func_name,
-                    "description": func_desc,
-                    "parameters": {
-                        "type": "object",
-                        "properties": parameters,
-                        "required": required_params
-                    }
-                }
-            }
-            
-            tool_definitions.append(tool_def)
-            tool_map[func_name] = tool
-        
-        # Call OpenAI API
-        messages = [
-            {"role": "system", "content": "You are a helpful Twitter assistant that can help users interact with Twitter. You can post tweets, search for tweets, view the user's timeline, and get user information."},
-            {"role": "user", "content": query}
-        ]
-        
-        response = self.openai_client.chat.completions.create(
-            model=self.model_name,
-            messages=messages,
-            tools=tool_definitions,
-            tool_choice="auto"
-        )
-        
-        # Process the response
-        message = response.choices[0].message
-        actions_taken = []
-        
-        # Check if the model wants to call a function
-        if message.tool_calls:
-            # Process each tool call
-            for tool_call in message.tool_calls:
-                function_name = tool_call.function.name
-                function_args = json.loads(tool_call.function.arguments)
-                
-                # Get the function from the tool map
-                if function_name in tool_map:
-                    tool_func = tool_map[function_name]
-                    
-                    try:
-                        # Call the function with the arguments
-                        # Handle SimpleTool objects from smolagents
-                        if hasattr(tool_func, '__call__'):
-                            # Regular function
-                            result = await tool_func(**function_args)
-                        elif hasattr(tool_func, 'call'):
-                            # SimpleTool from smolagents
-                            result = await tool_func.call(**function_args)
-                        else:
-                            # Unknown tool type
-                            raise ValueError(f"Unknown tool type: {type(tool_func)}")
-                            
-                        # Save tweet data if applicable
-                        if session and 'user_id' in session:
-                            user_id = session['user_id']
-                            # Check if the result contains tweet data
-                            if function_name == 'get_timeline_tool' and isinstance(result, dict) and 'tweets' in result:
-                                # Save timeline tweets
-                                await save_tweets(str(user_id), result['tweets'], tweet_type="timeline")
-                                logger.info(f"Saved {len(result['tweets'])} timeline tweets for user {user_id}")
-                            elif function_name == 'search_tweets_tool' and isinstance(result, dict) and 'tweets' in result:
-                                # Save search tweets
-                                query = function_args.get('query', 'unknown')
-                                await save_tweets(str(user_id), result['tweets'], tweet_type=f"search_{query}")
-                                logger.info(f"Saved {len(result['tweets'])} search tweets for user {user_id}")
-                            elif function_name == 'post_tweet_tool' and isinstance(result, dict) and 'success' in result and result['success']:
-                                # Save posted tweet
-                                tweet_data = {
-                                    'id': result.get('tweet_id', ''),
-                                    'text': result.get('text', function_args.get('text', ''))
-                                }
-                                await save_tweets(str(user_id), [tweet_data], tweet_type="posted")
-                                logger.info(f"Saved posted tweet for user {user_id}")
-                            
-                        success = True
-                    except Exception as e:
-                        logger.error(f"Error calling tool {function_name}: {str(e)}")
-                        import traceback
-                        logger.error(traceback.format_exc())
-                        result = {"error": str(e)}
-                        success = False
-                    
-                    # Add the action to the list
-                    actions_taken.append(ActionTaken(
-                        tool=function_name,
-                        input=function_args,
-                        output=result,
-                        success=success
-                    ))
-        
-        # Get the final response
-        if actions_taken:
-            # If we called tools, send the results back to the model for a final response
-            messages.append(message)  # Add the assistant's message with tool calls
-            
-            # Add the tool results to the messages
-            for action in actions_taken:
-                messages.append({
-                    "role": "tool",
-                    "tool_call_id": message.tool_calls[actions_taken.index(action)].id,
-                    "name": action.tool,
-                    "content": json.dumps(action.output)
-                })
-            
-            # Get the final response from the model
-            final_response = self.openai_client.chat.completions.create(
-                model=self.model_name,
-                messages=messages
+        # Create a smolagents CodeAgent with the provided tools
+        try:
+            agent = CodeAgent(
+                model=self.model,
+                tools=tools,
+                add_base_tools=False,  # Don't add default tools
+                system_prompt=AgentPrompts.get_twitter_assistant_prompt(),
+                additional_authorized_imports=[]  # No additional imports needed for Twitter operations
             )
-            
-            response_text = final_response.choices[0].message.content
-        else:
-            # If no tools were called, use the original response
-            response_text = message.content
+        except Exception as e:
+            logger.error(f"Error creating CodeAgent: {str(e)}")
+            import traceback
+            logger.error(traceback.format_exc())
+            return f"I encountered an error while initializing the agent: {str(e)}. Please try again.", []
         
-        return response_text, actions_taken
+        # Run the agent with the query
+        logger.info(f"Running agent with query: {query}")
+        try:
+            # Use run_async for async execution
+            result = await agent.run_async(query)
+            
+            # Extract the actions taken from the agent's trace
+            actions_taken = []
+            
+            # Process the trace to extract tool calls
+            if hasattr(result, 'trace') and result.trace:
+                for step in result.trace:
+                    # Check for code execution steps
+                    if hasattr(step, 'code') and step.code:
+                        logger.info(f"Agent executed code: {step.code}")
+                    
+                    # Check for tool calls
+                    if hasattr(step, 'tool_calls') and step.tool_calls:
+                        for tool_call in step.tool_calls:
+                            tool_name = tool_call.get('name', '')
+                            tool_input = tool_call.get('input', {})
+                            tool_output = tool_call.get('output', {})
+                            success = True if 'error' not in tool_output else False
+                            
+                            # Save tweet data if applicable
+                            if session and 'twitter_api' in session:
+                                user_id = session['twitter_api'].user_id
+                                if user_id:
+                                    # Check if the result contains tweet data
+                                    if tool_name == 'get_timeline_tool' and isinstance(tool_output, dict) and 'tweets' in tool_output:
+                                        # Save timeline tweets
+                                        await save_tweets(str(user_id), tool_output['tweets'], tweet_type="timeline")
+                                        logger.info(f"Saved {len(tool_output['tweets'])} timeline tweets for user {user_id}")
+                                    elif tool_name == 'search_tweets_tool' and isinstance(tool_output, dict) and 'tweets' in tool_output:
+                                        # Save search tweets
+                                        search_query = tool_input.get('query', 'unknown')
+                                        await save_tweets(str(user_id), tool_output['tweets'], tweet_type=f"search_{search_query}")
+                                        logger.info(f"Saved {len(tool_output['tweets'])} search tweets for user {user_id}")
+                                    elif tool_name == 'post_tweet_tool' and isinstance(tool_output, dict) and 'success' in tool_output and tool_output['success']:
+                                        # Save posted tweet
+                                        tweet_data = {
+                                            'id': tool_output.get('tweet_id', ''),
+                                            'text': tool_output.get('text', tool_input.get('text', ''))
+                                        }
+                                        await save_tweets(str(user_id), [tweet_data], tweet_type="posted")
+                                        logger.info(f"Saved posted tweet for user {user_id}")
+                            
+                            actions_taken.append(ActionTaken(
+                                tool=tool_name,
+                                input=tool_input,
+                                output=tool_output,
+                                success=success
+                            ))
+            
+            # Post-process the result
+            result_output = result.output
+            # Make the result serializable if needed
+            actions_taken = self._make_serializable(actions_taken)
+            
+            return result_output, actions_taken
+            
+        except Exception as e:
+            logger.error(f"Error running agent: {str(e)}")
+            import traceback
+            logger.error(traceback.format_exc())
+            return f"I encountered an error while processing your request: {str(e)}. Please try again.", []
     
     async def process_query(self, 
                            query: str, 
@@ -316,10 +217,11 @@ class TwitterAgent:
             # Get the Twitter tools from the session
             twitter_tools = session["twitter_tools"]
             
-            # Call OpenAI with the tools
-            response_text, actions_taken = await self._call_openai_with_tools(
+            # Run the agent with the tools
+            response_text, actions_taken = await self._run_agent_with_tools(
                 query=query, 
-                tools=twitter_tools.get_tools()
+                tools=twitter_tools.create_tools(),
+                session=session
             )
             
             logger.info(f"Agent completed with {len(actions_taken)} actions taken")

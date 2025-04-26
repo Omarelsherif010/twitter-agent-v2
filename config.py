@@ -7,7 +7,7 @@ load_dotenv()
 # Twitter API settings
 TWITTER_CLIENT_ID = os.getenv("TWITTER_CLIENT_ID")
 TWITTER_CLIENT_SECRET = os.getenv("TWITTER_CLIENT_SECRET")
-TWITTER_CALLBACK_URL = os.getenv("TWITTER_CALLBACK_URL", "http://localhost:8000/auth/callback")
+TWITTER_CALLBACK_URL = os.getenv("TWITTER_CALLBACK_URL", "http://localhost:8000/oauth/callback")
 
 # Data directory settings
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))

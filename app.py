@@ -16,7 +16,7 @@ app = FastAPI(
 )
 
 # Include routers
-app.include_router(auth_router, prefix="/auth", tags=["Authentication"])
+app.include_router(auth_router, prefix="/oauth", tags=["Authentication"])
 app.include_router(twitter_router, prefix="/twitter", tags=["Twitter"])
 app.include_router(agent_router, prefix="/agent", tags=["Agent"])
 
@@ -30,7 +30,7 @@ async def root():
         "version": "0.1.0",
         "description": "Twitter agent API with OAuth 2.0 authentication",
         "endpoints": [
-            "/auth/login",
+            "/oauth/login",
             "/twitter/tweet",
             "/twitter/timeline",
             "/twitter/search",

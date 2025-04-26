@@ -4,7 +4,7 @@ import datetime
 from typing import Dict, List, Optional, Any
 
 from config import TWITTER_CLIENT_ID, TWITTER_CLIENT_SECRET
-from database.db import get_token_by_user_id, get_token_by_twitter_user_id, update_token
+from database.db import get_token_by_user_id, get_token_by_twitter_user_id, update_token, save_tweets
 from twitter.utils import serialize_datetime, serialize_tweet_data
 
 class TwitterAPI:
@@ -77,7 +77,7 @@ class TwitterAPI:
         
         try:
             # Refresh the token
-            new_token_data = await oauth_handler.refresh_token(token["refresh_token"])
+            new_token_data = await oauth_handler.refresh_access_token(token["refresh_token"])
             
             # Update token in JSON storage
             token_update = {
@@ -138,10 +138,16 @@ class TwitterAPI:
             )
             
             # The response contains a data attribute with the tweet info
-            return {
+            tweet_data = {
                 "id": response.data["id"],
                 "text": response.data["text"]
             }
+            
+            # Save the posted tweet to a JSON file
+            if self.user_id:
+                await save_tweets(str(self.user_id), [tweet_data], tweet_type="posted")
+            
+            return tweet_data
         except Exception as e:
             raise HTTPException(status_code=400, detail=f"Failed to post tweet: {str(e)}")
     
@@ -155,11 +161,17 @@ class TwitterAPI:
         try:
             response = self.client.get_tweet(id=tweet_id, user_auth=False)
             
-            return {
+            tweet_data = {
                 "id": response.data.id,
                 "text": response.data.text,
                 "created_at": getattr(response.data, "created_at", None)
             }
+            
+            # Save the individual tweet to a JSON file
+            if self.user_id:
+                await save_tweets(str(self.user_id), [tweet_data], tweet_type="single_tweet")
+            
+            return tweet_data
         except Exception as e:
             raise HTTPException(status_code=400, detail=f"Failed to get tweet: {str(e)}")
     
@@ -240,6 +252,10 @@ class TwitterAPI:
                 # Use the utility function to serialize tweet data
                 tweets.append(serialize_tweet_data(tweet))
             
+            # Save the timeline tweets to a JSON file
+            if self.user_id and tweets:
+                await save_tweets(str(self.user_id), tweets, tweet_type="timeline")
+            
             return tweets
         except Exception as e:
             raise HTTPException(status_code=400, detail=f"Failed to get timeline: {str(e)}")
@@ -255,9 +271,14 @@ class TwitterAPI:
             response = self.client.search_recent_tweets(query=query, max_results=limit, user_auth=False)
             
             tweets = []
-            for tweet in response.data:
-                # Use the utility function to serialize tweet data
-                tweets.append(serialize_tweet_data(tweet))
+            if hasattr(response, "data") and response.data:
+                for tweet in response.data:
+                    # Use the utility function to serialize tweet data
+                    tweets.append(serialize_tweet_data(tweet))
+                
+                # Save the search results to a JSON file
+                if self.user_id and tweets:
+                    await save_tweets(str(self.user_id), tweets, tweet_type=f"search_{query}")
             
             return tweets
         except Exception as e:

@@ -14,13 +14,13 @@ oauth_handler = OAuth2Handler()
 @auth_router.get("/login")
 async def login(request: Request):
     """
-    Redirect to Twitter OAuth authorization URL or return the URL as JSON
+    Redirect to Twitter OAuth login page
     """
+    # Get authorization URL from the OAuth handler
     authorization_url = oauth_handler.get_authorization_url()
     
-    # Check if the request accepts JSON
-    accept_header = request.headers.get("accept", "")
-    if "application/json" in accept_header:
+    # If this is an API request, return the URL
+    if request.headers.get("accept") == "application/json":
         return {"authorization_url": authorization_url}
     
     # Otherwise, redirect the browser

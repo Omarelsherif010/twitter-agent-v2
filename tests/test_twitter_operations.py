@@ -4,8 +4,11 @@ import json
 import datetime
 from typing import Dict, Any, List, Optional
 
-from twitter.utils import serialize_datetime
+# Add project root to path to ensure imports work
+import os
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
+from twitter.utils import serialize_datetime
 from twitter.api import TwitterAPI
 from database.db import get_tokens
 

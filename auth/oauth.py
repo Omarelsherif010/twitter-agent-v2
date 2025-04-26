@@ -1,8 +1,11 @@
 import tweepy
 from fastapi import HTTPException
-import datetime
-import secrets
+import datetime as dt  # Import as dt to avoid confusion
 import os
+import json
+import base64
+import hashlib
+import urllib.parse
 from typing import Dict, Optional, Tuple, Any
 
 from config import TWITTER_CLIENT_ID, TWITTER_CLIENT_SECRET, TWITTER_CALLBACK_URL, TWITTER_SCOPES, DEBUG
@@ -19,19 +22,23 @@ class OAuth2Handler:
     Handler for Twitter OAuth 2.0 authentication with PKCE
     """
     def __init__(self):
-        self.client_id = TWITTER_CLIENT_ID
-        self.client_secret = TWITTER_CLIENT_SECRET
-        self.redirect_uri = TWITTER_CALLBACK_URL
-        self.scopes = TWITTER_SCOPES
+        # Hardcode the values directly to ensure consistency
+        self.client_id = "NkNaZGFqeF91NDZBQlpqRFhrV1k6MTpjaQ"  # Hardcoded from .env
+        self.client_secret = "-_9G0PyCNVj43aBQYcNPIQHcziQePBylL1dTa0u78bBT9dNNFZ"  # Hardcoded from .env
+        self.redirect_uri = "http://localhost:8000/oauth/callback"  # Hardcoded
+        self.scopes = ["tweet.read", "tweet.write", "users.read", "follows.read", 
+                      "follows.write", "like.read", "like.write", "offline.access"]
         
-        # Initialize OAuth 2.0 handler
-        # Note: PKCE is not explicitly enabled in the constructor in Tweepy 4.15.0
-        # but will be used by default for public clients
+        # Print the values for debugging
+        print(f"DEBUG - Client ID: {self.client_id}")
+        print(f"DEBUG - Callback URL: {self.redirect_uri}")
+        print(f"DEBUG - Scopes: {self.scopes}")
+        
+        # Initialize OAuth 2.0 handler with hardcoded values
         self.oauth2_handler = tweepy.OAuth2UserHandler(
             client_id=self.client_id,
             redirect_uri=self.redirect_uri,
             scope=self.scopes,
-            # Client Secret is required for our app type
             client_secret=self.client_secret
         )
     
@@ -45,7 +52,13 @@ class OAuth2Handler:
                 detail="Twitter API credentials not configured. Please set TWITTER_CLIENT_ID and TWITTER_CLIENT_SECRET."
             )
         
-        return self.oauth2_handler.get_authorization_url()
+        # Let Tweepy handle the PKCE flow
+        auth_url = self.oauth2_handler.get_authorization_url()
+        
+        print("DEBUG - Authorization URL:")
+        print(auth_url)
+        
+        return auth_url
     
     async def fetch_token(self, authorization_response: str) -> Dict:
         """
@@ -55,7 +68,8 @@ class OAuth2Handler:
             authorization_response: The full callback URL with query parameters
         """
         try:
-            # Get access token using the full authorization response URL
+            # Let Tweepy handle the token exchange
+            print("DEBUG - Exchanging code for token")
             token_data = self.oauth2_handler.fetch_token(authorization_response)
             
             # Create client with the access token
@@ -70,7 +84,7 @@ class OAuth2Handler:
             twitter_username = user_info.data.username
             
             # Calculate token expiration
-            expires_at = datetime.datetime.utcnow() + datetime.timedelta(seconds=token_data['expires_in'])
+            expires_at = dt.datetime.utcnow() + dt.timedelta(seconds=token_data['expires_in'])
             
             return {
                 "access_token": token_data['access_token'],
@@ -92,7 +106,7 @@ class OAuth2Handler:
             token_data = self.oauth2_handler.refresh_token(refresh_token)
             
             # Calculate new expiration
-            expires_at = datetime.datetime.utcnow() + datetime.timedelta(seconds=token_data['expires_in'])
+            expires_at = dt.datetime.utcnow() + dt.timedelta(seconds=token_data['expires_in'])
             
             return {
                 "access_token": token_data['access_token'],
@@ -117,7 +131,7 @@ class OAuth2Handler:
                 "refresh_token": token_data.get("refresh_token", existing_token.get("refresh_token")),
                 "expires_at": token_data["expires_at"],
                 "scopes": token_data.get("scopes", existing_token.get("scopes", "")),
-                "updated_at": datetime.datetime.utcnow(),
+                "updated_at": dt.datetime.utcnow(),
                 "is_active": True
             }
             
@@ -136,8 +150,8 @@ class OAuth2Handler:
                 # Create user model
                 user_data = {
                     "username": token_data["twitter_username"],
-                    "created_at": datetime.datetime.utcnow(),
-                    "updated_at": datetime.datetime.utcnow()
+                    "created_at": dt.datetime.utcnow(),
+                    "updated_at": dt.datetime.utcnow()
                 }
                 
                 # Create user in storage
@@ -156,8 +170,8 @@ class OAuth2Handler:
                 "refresh_token": token_data.get("refresh_token"),
                 "expires_at": token_data["expires_at"],
                 "scopes": token_data.get("scopes", ""),
-                "created_at": datetime.datetime.utcnow(),
-                "updated_at": datetime.datetime.utcnow(),
+                "created_at": dt.datetime.utcnow(),
+                "updated_at": dt.datetime.utcnow(),
                 "is_active": True
             }
             
@@ -166,3 +180,4 @@ class OAuth2Handler:
             token_data_to_save["id"] = token_id
             
             return user_data, token_data_to_save
+

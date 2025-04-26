@@ -1,6 +1,12 @@
 import asyncio
 import json
 import traceback
+import os
+import sys
+
+# Add project root to path to ensure imports work
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
 from twitter.api import TwitterAPI
 from database.db import get_tokens
 

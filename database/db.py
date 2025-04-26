@@ -1,9 +1,14 @@
 import json
 import os
+import logging
 import aiofiles
 import asyncio
-import datetime
-from typing import Dict, List, Any, Optional
+import datetime as dt  # Import as dt to be consistent with OAuth handler
+from typing import Dict, Any, List, Optional
+
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Define data directory
 DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'data')
@@ -51,7 +56,7 @@ async def read_json_file(file_path: str) -> Dict:
 # Custom JSON encoder to handle datetime objects
 class DateTimeEncoder(json.JSONEncoder):
     def default(self, obj):
-        if isinstance(obj, datetime.datetime):
+        if isinstance(obj, dt.datetime):
             return obj.isoformat()
         return super().default(obj)
 
@@ -138,7 +143,11 @@ async def get_token_by_user_id(user_id: str) -> Optional[Dict[str, Any]]:
     tokens = await get_tokens()
     
     for token_id, token_data in tokens.items():
-        if token_data.get('user_id') == user_id and token_data.get('is_active', True):
+        # Convert stored user_id to string for comparison if it's not already a string
+        stored_user_id = str(token_data.get('user_id', '')) if token_data.get('user_id') is not None else ''
+        
+        # Check if the user_id matches and the token is active
+        if stored_user_id == str(user_id) and token_data.get('is_active', False):
             return token_data
     
     return None
@@ -150,10 +159,102 @@ async def get_token_by_twitter_user_id(twitter_user_id: str) -> Optional[Dict[st
     tokens = await get_tokens()
     
     for token_id, token_data in tokens.items():
-        if token_data.get('twitter_user_id') == twitter_user_id and token_data.get('is_active', True):
+        # Convert stored twitter_user_id to string for comparison if it's not already a string
+        stored_twitter_user_id = str(token_data.get('twitter_user_id', '')) if token_data.get('twitter_user_id') is not None else ''
+        
+        # Check if the twitter_user_id matches and the token is active
+        if stored_twitter_user_id == str(twitter_user_id) and token_data.get('is_active', False):
             return token_data
     
     return None
+
+
+# Tweet storage functions
+async def save_tweets(user_id: str, tweets: List[Dict], tweet_type: str = "timeline") -> bool:
+    """
+    Save tweets to a JSON file for a specific user
+    
+    Args:
+        user_id: The user ID associated with the tweets
+        tweets: List of tweet data to save
+        tweet_type: Type of tweets (timeline, search, posted)
+        
+    Returns:
+        True if successful, False otherwise
+    """
+    try:
+        # Create tweets directory if it doesn't exist
+        tweets_dir = os.path.join(DATA_DIR, "tweets")
+        os.makedirs(tweets_dir, exist_ok=True)
+        
+        # Create user-specific directory
+        user_tweets_dir = os.path.join(tweets_dir, str(user_id))
+        os.makedirs(user_tweets_dir, exist_ok=True)
+        
+        # Generate filename with timestamp
+        timestamp = dt.datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"{tweet_type}_{timestamp}.json"
+        file_path = os.path.join(user_tweets_dir, filename)
+        
+        # Save tweets to file
+        async with aiofiles.open(file_path, "w") as f:
+            await f.write(json.dumps({
+                "tweet_type": tweet_type,
+                "timestamp": timestamp,
+                "tweets": tweets
+            }, indent=2))
+            
+        return True
+    except Exception as e:
+        logger.error(f"Error saving tweets: {str(e)}")
+        return False
+
+
+async def get_saved_tweets(user_id: str, tweet_type: str = None, limit: int = 10) -> List[Dict]:
+    """
+    Get saved tweets for a specific user
+    
+    Args:
+        user_id: The user ID to get tweets for
+        tweet_type: Optional type filter (timeline, search, posted)
+        limit: Maximum number of tweet files to return
+        
+    Returns:
+        List of tweet data dictionaries
+    """
+    try:
+        user_tweets_dir = os.path.join(DATA_DIR, "tweets", str(user_id))
+        
+        # Check if directory exists
+        if not os.path.exists(user_tweets_dir):
+            return []
+        
+        # Get list of tweet files
+        files = [f for f in os.listdir(user_tweets_dir) if f.endswith(".json")]
+        
+        # Filter by tweet type if specified
+        if tweet_type:
+            files = [f for f in files if f.startswith(f"{tweet_type}_")]
+        
+        # Sort by timestamp (newest first)
+        files.sort(reverse=True)
+        
+        # Limit the number of files
+        files = files[:limit]
+        
+        # Load tweet data from files
+        result = []
+        for filename in files:
+            file_path = os.path.join(user_tweets_dir, filename)
+            async with aiofiles.open(file_path, "r") as f:
+                content = await f.read()
+                data = json.loads(content)
+                result.append(data)
+        
+        return result
+    except Exception as e:
+        logger.error(f"Error getting saved tweets: {str(e)}")
+        return []
 
 async def create_token(token_data: Dict[str, Any]) -> str:
     """
